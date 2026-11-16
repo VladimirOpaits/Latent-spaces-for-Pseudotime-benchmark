@@ -1,8 +1,8 @@
 import time
 import numpy as np, pandas as pd
 from bench.data import load_larry
-from bench.frontends import frontend_path, load_frontend, make_frontend, smooth
-from bench.graph import get_graph
+from bench.latents import frontend_path, load_frontend, make_frontend, smooth
+from bench.latents import get_graph
 
 meta, _ = load_larry()
 base = load_frontend(frontend_path("pca"))

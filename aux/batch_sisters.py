@@ -1,6 +1,6 @@
 import numpy as np, pandas as pd
 from bench.data import load_larry
-from bench.frontends import frontend_path, load_frontend
+from bench.latents import frontend_path, load_frontend
 
 meta, clones = load_larry()
 data = load_frontend(frontend_path("pca"))

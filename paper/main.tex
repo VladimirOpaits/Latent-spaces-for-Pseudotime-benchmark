@@ -19,6 +19,24 @@
 
 \maketitle
 
+\begin{abstract}
+    Reconstructing developmental trajectories from single-cell RNA sequencing
+(scRNA-seq) data is essential for understanding a wide range of biological
+processes. Trajectory inference methods such as diffusion pseudotime (DPT),
+Slingshot and Palantir operate on a low-dimensional representation of the
+expression matrix, yet the choice of this representation is rarely evaluated,
+even though available embedding methods rely on different assumptions and are
+optimized for different tasks. Here, we systematically benchmark [N] embedding
+methods, from widely used [e.g. PCA, scVI] to less common [e.g. ...], as inputs
+to [M] pseudotime algorithms across [K] datasets with [known ground truth:
+simulated lineages / time-course annotations], using [metrics, e.g. Spearman
+correlation with true ordering, branch assignment accuracy]. We find that
+[main result with a number]. [Second result: under which conditions / trade-off].
+[Unexpected finding, if any]. Our results indicate that [practical recommendation],
+and that the embedding should be treated as a key parameter of trajectory
+inference. Code and results are available at [link].
+\end{abstract}
+
 \section{Methods}
 
 \subsection{Dataset}

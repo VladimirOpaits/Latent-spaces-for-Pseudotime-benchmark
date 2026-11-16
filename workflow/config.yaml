@@ -4,9 +4,17 @@ roots: {n_roots: 5, pool_size: 100, seed: 0, n_used: 5}
 dpt: {n_dcs: 10}
 palantir: {n_components: 20, num_waypoints: 1200, seed: 20}
 slingshot: {cluster_by: leiden, seed: 0}
-score: {n_boot: 1000}
+evaluate: {n_boot: 2000, severe: 0.1, ref: {pre: pca}}
 calib:
   frontend: pca
   k: 15
   slingshot_resolution: [0.5, 1.0, 2.0]
 kcross: {t: 3, k: [10, 15, 30]}
+scvi: {n_latent: 10}
+pre:
+  k: 15
+  frontends: [pca, scvi_s0, scvi_s1, sctour_s0, sctour_s1,
+              pca5, pca10, pca20, pca_smooth_t1_k15, pca_smooth_t3_k15, pca_smooth_t10_k15,
+              scvi_l10_kl0.01_s0, scvi_l10_kl1.0_s0,
+              gae_l10_e200_s0, gae_l50_e200_s0, vgae_l10_e200_s0, vgae_l50_e200_s0, gae_l50_e0_s0,
+              scvi_l30_kl0.01_s0, scvi_l30_kl1.0_s0]

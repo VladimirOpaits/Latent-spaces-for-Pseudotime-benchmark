@@ -1,13 +1,355 @@
 configfile: "workflow/config.yaml"
 
+PY = "PYTHONPATH=. python -m"
+FE = "runs/frontends"
+ROOTS = "$(head -n {params.n_roots} {input.roots})"
+
+wildcard_constraints:
+    run=r"[^/]+",
+    fe=r"[^/]+",
+    k=r"\d+",
+    n=r"\d+",
+    t=r"\d+",
+    kf=r"\d+",
+    nl=r"\d+",
+    ep=r"\d+",
+    seed=r"\d+",
+    w=r"[0-9.]+",
+    res=r"[0-9.]+",
+    kind="gae|vgae",
+    part="dev|test",
+    name="calib|kcross|pre",
+    backend="euclid|dpt|palantir|slingshot|sctour"
+
+
+def pt_files(name):
+    run, k = config["run"], config["calib"]["k"]
+    base = f"runs/{run}/pt"
+    if name == "calib":
+        fe = config["calib"]["frontend"]
+        out = [f"{base}/{fe}/euclid/euclid_pseudotime.csv", f"{base}/{fe}/dpt/k{k}/dpt_pseudotime.csv",
+               f"{base}/{fe}/palantir/k{k}/palantir_pseudotime.csv"]
+        return out + [f"{base}/{fe}/slingshot/k{k}/res{r}/slingshot_pseudotime.csv"
+                      for r in config["calib"]["slingshot_resolution"]]
+    if name == "kcross":
+        ks, t = config["kcross"]["k"], config["kcross"]["t"]
+        return [f"{base}/pca_smooth_t{t}_k{kf}/dpt/k{kb}/dpt_pseudotime.csv" for kf in ks for kb in ks]
+    k = config["pre"]["k"]
+    out = []
+    for fe in config["pre"]["frontends"]:
+        out += [f"{base}/{fe}/euclid/euclid_pseudotime.csv", f"{base}/{fe}/dpt/k{k}/dpt_pseudotime.csv",
+                f"{base}/{fe}/palantir/k{k}/palantir_pseudotime.csv"]
+        if fe.startswith("sctour"):
+            out.append(f"{base}/{fe}/sctour/sctour_pseudotime.csv")
+    return out
+
+
+def scores(name, part="dev"):
+    return f"runs/{config['run']}/eval/{part}/{name}/scores.csv"
+
+
+def plots(name):
+    return [p.replace("/pt/", "/plots/").replace("_pseudotime.csv", "_pt.png") for p in pt_files(name)
+            if "/euclid/" not in p]
+
 
 rule all:
     input:
-        f"runs/{config['run']}/calib_summary.csv"
+        scores("pre")
 
 
-include: "rules/data.smk"
-include: "rules/frontends.smk"
-include: "rules/backends.smk"
-include: "rules/metrics.smk"
-include: "rules/calib.smk"
+rule calib:
+    input:
+        scores("calib"),
+        plots("calib")
+
+
+rule kcross:
+    input:
+        scores("kcross")
+
+
+rule pre:
+    input:
+        scores("pre"),
+        plots("pre")
+
+
+# data
+
+rule cache:
+    input:
+        "rt_data/stateFate_inVitro_normed_counts.mtx.gz"
+    output:
+        "rt_data/cache/normed_counts_f32.npz"
+    resources:
+        mem_gb=10
+    shell:
+        f"{PY} bench.data cache --normed {{input}} --out {{output}}"
+
+
+rule split_clones:
+    input:
+        meta="rt_data/stateFate_inVitro_metadata.txt.gz",
+        clones="rt_data/stateFate_inVitro_clone_matrix.mtx.gz"
+    output:
+        "runs/fixed/clone_split.csv"
+    params:
+        dev_frac=config["split"]["dev_frac"],
+        seed=config["split"]["seed"]
+    shell:
+        f"{PY} bench.data split --meta {{input.meta}} --clones {{input.clones}} --out {{output}} "
+        "--dev-frac {params.dev_frac} --seed {params.seed}"
+
+
+rule counts_hvg:
+    input:
+        normed="rt_data/cache/normed_counts_f32.npz",
+        genes="rt_data/stateFate_inVitro_gene_names.txt.gz",
+        meta="rt_data/stateFate_inVitro_metadata.txt.gz"
+    output:
+        "runs/fixed/counts_hvg.h5ad"
+    resources:
+        mem_gb=6
+    shell:
+        f"{PY} bench.data counts --normed {{input.normed}} --genes {{input.genes}} --meta {{input.meta}} --out {{output}}"
+
+
+rule roots:
+    input:
+        f"{FE}/pca.h5ad"
+    output:
+        "runs/fixed/roots.txt"
+    params:
+        n_roots=config["roots"]["n_roots"],
+        pool_size=config["roots"]["pool_size"],
+        seed=config["roots"]["seed"]
+    shell:
+        f"{PY} bench.backends roots --adata {{input}} --out {{output}} "
+        "--n-roots {params.n_roots} --pool-size {params.pool_size} --seed {params.seed}"
+
+
+# latents
+
+rule pca:
+    input:
+        "rt_data/cache/normed_counts_f32.npz"
+    output:
+        f"{FE}/pca.h5ad"
+    resources:
+        mem_gb=8
+    shell:
+        f"{PY} bench.latents pca --input {{input}} --out {{output}}"
+
+
+rule pca_slice:
+    input:
+        f"{FE}/pca.h5ad"
+    output:
+        f"{FE}/pca{{n}}.h5ad"
+    shell:
+        f"{PY} bench.latents slice --input {{input}} --out {{output}} --n {{wildcards.n}}"
+
+
+rule pca_smooth:
+    input:
+        f"{FE}/pca.h5ad"
+    output:
+        f"{FE}/pca_smooth_t{{t}}_k{{kf}}.h5ad"
+    resources:
+        mem_gb=3
+    shell:
+        f"{PY} bench.latents smooth --input {{input}} --out {{output}} --k {{wildcards.kf}} --t {{wildcards.t}}"
+
+
+rule scvi:
+    input:
+        "runs/fixed/counts_hvg.h5ad"
+    output:
+        f"{FE}/scvi_s{{seed}}.h5ad"
+    params:
+        n_latent=config["scvi"]["n_latent"]
+    resources:
+        mem_gb=4,
+        gpu=1
+    log:
+        f"{FE}/scvi_s{{seed}}.log"
+    shell:
+        f"{PY} bench.latents scvi --input {{input}} --out {{output}} --seed {{wildcards.seed}} "
+        "--n-latent {params.n_latent} > {log} 2>&1"
+
+
+rule scvi_kl:
+    input:
+        "runs/fixed/counts_hvg.h5ad"
+    output:
+        f"{FE}/scvi_l{{nl}}_kl{{w}}_s{{seed}}.h5ad"
+    resources:
+        mem_gb=4,
+        gpu=1
+    log:
+        f"{FE}/scvi_l{{nl}}_kl{{w}}_s{{seed}}.log"
+    shell:
+        f"{PY} bench.latents scvi --input {{input}} --out {{output}} --seed {{wildcards.seed}} "
+        "--n-latent {wildcards.nl} --kl-weight {wildcards.w} > {log} 2>&1"
+
+
+rule sctour:
+    input:
+        "runs/fixed/counts_hvg.h5ad"
+    output:
+        fe=f"{FE}/sctour_s{{seed}}.h5ad",
+        pt=f"{FE}/sctour_s{{seed}}_pt.csv"
+    resources:
+        mem_gb=5,
+        gpu=1
+    log:
+        f"{FE}/sctour_s{{seed}}.log"
+    shell:
+        f"{PY} bench.latents sctour --input {{input}} --out {{output.fe}} --pt-out {{output.pt}} "
+        "--seed {wildcards.seed} > {log} 2>&1"
+
+
+rule gae:
+    input:
+        f"{FE}/pca.h5ad"
+    output:
+        f"{FE}/{{kind}}_l{{nl}}_e{{ep}}_s{{seed}}.h5ad"
+    resources:
+        mem_gb=4,
+        gpu=1
+    log:
+        f"{FE}/{{kind}}_l{{nl}}_e{{ep}}_s{{seed}}.log"
+    shell:
+        f"{PY} bench.latents gae --input {{input}} --out {{output}} --kind {{wildcards.kind}} "
+        "--n-latent {wildcards.nl} --epochs {wildcards.ep} --seed {wildcards.seed} > {log} 2>&1"
+
+
+# backends
+
+rule euclid:
+    input:
+        adata=f"{FE}/{{fe}}.h5ad",
+        roots="runs/fixed/roots.txt"
+    output:
+        "runs/{run}/pt/{fe}/euclid/euclid_pseudotime.csv"
+    params:
+        n_roots=config["roots"]["n_used"]
+    resources:
+        mem_gb=2
+    shell:
+        f"{PY} bench.backends euclid --adata {{input.adata}} --roots {ROOTS} --outdir $(dirname {{output}})"
+
+
+rule dpt:
+    input:
+        adata=f"{FE}/{{fe}}.h5ad",
+        roots="runs/fixed/roots.txt"
+    output:
+        "runs/{run}/pt/{fe}/dpt/k{k}/dpt_pseudotime.csv"
+    params:
+        n_roots=config["roots"]["n_used"],
+        n_dcs=config["dpt"]["n_dcs"]
+    resources:
+        mem_gb=3
+    shell:
+        f"{PY} bench.backends dpt --adata {{input.adata}} --roots {ROOTS} --n-neighbors {{wildcards.k}} "
+        "--n-dcs {params.n_dcs} --outdir $(dirname {output})"
+
+
+rule palantir:
+    input:
+        adata=f"{FE}/{{fe}}.h5ad",
+        roots="runs/fixed/roots.txt"
+    output:
+        "runs/{run}/pt/{fe}/palantir/k{k}/palantir_pseudotime.csv"
+    params:
+        n_roots=config["roots"]["n_used"],
+        n_components=config["palantir"]["n_components"],
+        waypoints=config["palantir"]["num_waypoints"],
+        seed=config["palantir"]["seed"]
+    threads: 8
+    resources:
+        mem_gb=5
+    shell:
+        f"{PY} bench.backends palantir --adata {{input.adata}} --roots {ROOTS} --n-neighbors {{wildcards.k}} "
+        "--n-components {params.n_components} --num-waypoints {params.waypoints} --seed {params.seed} "
+        "--n-jobs {threads} --outdir $(dirname {output})"
+
+
+rule palantir_calib:
+    input:
+        adata=f"{FE}/{{fe}}.h5ad",
+        roots="runs/fixed/roots.txt"
+    output:
+        "runs/{run}/pt/{fe}/palantir/k{k}/nc{n}/palantir_pseudotime.csv"
+    params:
+        n_roots=config["roots"]["n_used"],
+        waypoints=config["palantir"]["num_waypoints"],
+        seed=config["palantir"]["seed"]
+    threads: 8
+    resources:
+        mem_gb=5
+    shell:
+        f"{PY} bench.backends palantir --adata {{input.adata}} --roots {ROOTS} --n-neighbors {{wildcards.k}} "
+        "--n-components {wildcards.n} --num-waypoints {params.waypoints} --seed {params.seed} "
+        "--n-jobs {threads} --outdir $(dirname {output})"
+
+
+rule slingshot:
+    input:
+        adata=f"{FE}/{{fe}}.h5ad",
+        roots="runs/fixed/roots.txt"
+    output:
+        "runs/{run}/pt/{fe}/slingshot/k{k}/res{res}/slingshot_pseudotime.csv"
+    params:
+        n_roots=config["roots"]["n_used"],
+        cluster_by=config["slingshot"]["cluster_by"],
+        seed=config["slingshot"]["seed"]
+    resources:
+        mem_gb=4
+    shell:
+        f"{PY} bench.backends slingshot --adata {{input.adata}} --roots {ROOTS} --n-neighbors {{wildcards.k}} "
+        "--resolution {wildcards.res} --cluster-by {params.cluster_by} --seed {params.seed} "
+        "--outdir $(dirname {output})"
+
+
+rule sctour_own:
+    input:
+        f"{FE}/sctour_s{{seed}}_pt.csv"
+    output:
+        "runs/{run}/pt/sctour_s{seed}/sctour/sctour_pseudotime.csv"
+    shell:
+        "cp {input} {output}"
+
+
+# metric
+
+rule score:
+    input:
+        pts=lambda w: pt_files(w.name),
+        split="runs/fixed/clone_split.csv"
+    output:
+        "runs/{run}/eval/{part}/{name}/scores.csv",
+        "runs/{run}/eval/{part}/{name}/slices.csv"
+    params:
+        ref=lambda w: f"--ref {config['evaluate']['ref'][w.name]}" if w.name in config["evaluate"]["ref"] else "",
+        n_boot=config["evaluate"]["n_boot"],
+        severe=config["evaluate"]["severe"]
+    resources:
+        mem_gb=4
+    shell:
+        f"{PY} bench.metric score --pts {{input.pts}} --split {{input.split}} --part {{wildcards.part}} "
+        "--outdir $(dirname {output[0]}) {params.ref} --n-boot {params.n_boot} --severe {params.severe}"
+
+
+rule plot:
+    input:
+        pt="runs/{run}/pt/{path}/{backend}_pseudotime.csv",
+        meta="rt_data/stateFate_inVitro_metadata.txt.gz"
+    output:
+        "runs/{run}/plots/{path}/{backend}_pt.png"
+    resources:
+        mem_gb=2
+    shell:
+        f"{PY} bench.metric plot --pt {{input.pt}} --meta {{input.meta}} --out {{output}}"
