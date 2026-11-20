@@ -2,6 +2,7 @@ configfile: "workflow/config.yaml"
 
 PY = "PYTHONPATH=. python -m"
 FE = "runs/frontends"
+THIN = "runs/thin/p{p}{d}"
 ROOTS = "$(head -n {params.n_roots} {input.roots})"
 
 wildcard_constraints:
@@ -18,8 +19,19 @@ wildcard_constraints:
     res=r"[0-9.]+",
     kind="gae|vgae",
     part="dev|test",
-    name="calib|kcross|pre",
-    backend="euclid|dpt|palantir|slingshot|sctour"
+    name="calib|kcross|pre|kernel|thin",
+    backend="euclid|dpt|palantir|slingshot|sctour",
+    p=r"0\.\d+",
+    d=r"(d\d+)?",
+    sfx=r"(_p0\.\d+(d\d+)?)?"
+
+
+def normed(w):
+    return "rt_data/cache/normed_counts_f32.npz" if not w.sfx else f"runs/thin/p{w.sfx[2:]}/normed.npz"
+
+
+def counts(w):
+    return "runs/fixed/counts_hvg.h5ad" if not w.sfx else f"runs/thin/p{w.sfx[2:]}/counts_hvg.h5ad"
 
 
 def pt_files(name):
@@ -31,6 +43,17 @@ def pt_files(name):
                f"{base}/{fe}/palantir/k{k}/palantir_pseudotime.csv"]
         return out + [f"{base}/{fe}/slingshot/k{k}/res{r}/slingshot_pseudotime.csv"
                       for r in config["calib"]["slingshot_resolution"]]
+    if name == "thin":
+        c, k = config["thin"], config["pre"]["k"]
+        fes = [fe + sfx for fe in c["frontends"] for sfx in [""] + [f"_p{p}" for p in c["p"]]]
+        fes += [f"{fe}_p{p}d{d}" for fe in c["draw_frontends"] for p in c["draw_p"] for d in c["draws"]]
+        return [f for fe in fes for f in (f"{base}/{fe}/euclid/euclid_pseudotime.csv",
+                f"{base}/{fe}/dpt/k{k}/dpt_pseudotime.csv", f"{base}/{fe}/palantir/k{k}/palantir_pseudotime.csv")]
+    if name == "kernel":
+        c = config["kernel"]
+        fe = c["frontend"]
+        out = [f"{base}/{fe}/dpt/k{kk}/dpt_pseudotime.csv" for kk in c["k"]]
+        return out + [f"{base}/{fe}/dpt/k{kk}/gauss_s{s}/dpt_pseudotime.csv" for kk in c["k"] for s in c["sigma"]]
     if name == "kcross":
         ks, t = config["kcross"]["k"], config["kcross"]["t"]
         return [f"{base}/pca_smooth_t{t}_k{kf}/dpt/k{kb}/dpt_pseudotime.csv" for kf in ks for kb in ks]
@@ -67,6 +90,16 @@ rule calib:
 rule kcross:
     input:
         scores("kcross")
+
+
+rule thin_all:
+    input:
+        scores("thin")
+
+
+rule kernel:
+    input:
+        scores("kernel")
 
 
 rule pre:
@@ -133,9 +166,9 @@ rule roots:
 
 rule pca:
     input:
-        "rt_data/cache/normed_counts_f32.npz"
+        normed
     output:
-        f"{FE}/pca.h5ad"
+        f"{FE}/pca{{sfx}}.h5ad"
     resources:
         mem_gb=8
     shell:
@@ -153,27 +186,50 @@ rule pca_slice:
 
 rule pca_smooth:
     input:
-        f"{FE}/pca.h5ad"
+        f"{FE}/pca{{sfx}}.h5ad"
     output:
-        f"{FE}/pca_smooth_t{{t}}_k{{kf}}.h5ad"
+        f"{FE}/pca_smooth_t{{t}}_k{{kf}}{{sfx}}.h5ad"
     resources:
         mem_gb=3
     shell:
         f"{PY} bench.latents smooth --input {{input}} --out {{output}} --k {{wildcards.kf}} --t {{wildcards.t}}"
 
 
+rule umap:
+    input:
+        f"{FE}/pca{{sfx}}.h5ad"
+    output:
+        f"{FE}/umap_s{{seed}}{{sfx}}.h5ad"
+    resources:
+        mem_gb=3
+    shell:
+        f"{PY} bench.latents umap --input {{input}} --out {{output}} --seed {{wildcards.seed}}"
+
+
+rule magic:
+    input:
+        normed
+    output:
+        f"{FE}/magic_t{{t}}{{sfx}}.h5ad"
+    threads: 8
+    resources:
+        mem_gb=8
+    shell:
+        f"{PY} bench.latents magic --input {{input}} --out {{output}} --t {{wildcards.t}} --n-jobs {{threads}}"
+
+
 rule scvi:
     input:
-        "runs/fixed/counts_hvg.h5ad"
+        counts
     output:
-        f"{FE}/scvi_s{{seed}}.h5ad"
+        f"{FE}/scvi_s{{seed}}{{sfx}}.h5ad"
     params:
         n_latent=config["scvi"]["n_latent"]
     resources:
         mem_gb=4,
         gpu=1
     log:
-        f"{FE}/scvi_s{{seed}}.log"
+        f"{FE}/scvi_s{{seed}}{{sfx}}.log"
     shell:
         f"{PY} bench.latents scvi --input {{input}} --out {{output}} --seed {{wildcards.seed}} "
         "--n-latent {params.n_latent} > {log} 2>&1"
@@ -212,14 +268,14 @@ rule sctour:
 
 rule gae:
     input:
-        f"{FE}/pca.h5ad"
+        f"{FE}/pca{{sfx}}.h5ad"
     output:
-        f"{FE}/{{kind}}_l{{nl}}_e{{ep}}_s{{seed}}.h5ad"
+        f"{FE}/{{kind}}_l{{nl}}_e{{ep}}_s{{seed}}{{sfx}}.h5ad"
     resources:
         mem_gb=4,
         gpu=1
     log:
-        f"{FE}/{{kind}}_l{{nl}}_e{{ep}}_s{{seed}}.log"
+        f"{FE}/{{kind}}_l{{nl}}_e{{ep}}_s{{seed}}{{sfx}}.log"
     shell:
         f"{PY} bench.latents gae --input {{input}} --out {{output}} --kind {{wildcards.kind}} "
         "--n-latent {wildcards.nl} --epochs {wildcards.ep} --seed {wildcards.seed} > {log} 2>&1"
@@ -255,6 +311,24 @@ rule dpt:
     shell:
         f"{PY} bench.backends dpt --adata {{input.adata}} --roots {ROOTS} --n-neighbors {{wildcards.k}} "
         "--n-dcs {params.n_dcs} --outdir $(dirname {output})"
+
+
+rule dpt_gauss:
+    input:
+        adata=f"{FE}/{{fe}}.h5ad",
+        roots="runs/fixed/roots.txt"
+    output:
+        "runs/{run}/pt/{fe}/dpt/k{k}/gauss_s{sig}/dpt_pseudotime.csv"
+    wildcard_constraints:
+        sig=r"[0-9.]+"
+    params:
+        n_roots=config["roots"]["n_used"],
+        n_dcs=config["dpt"]["n_dcs"]
+    resources:
+        mem_gb=3
+    shell:
+        f"{PY} bench.backends dpt --adata {{input.adata}} --roots {ROOTS} --n-neighbors {{wildcards.k}} "
+        "--n-dcs {params.n_dcs} --kernel gauss --sigma-scale {wildcards.sig} --outdir $(dirname {output})"
 
 
 rule palantir:
@@ -328,19 +402,23 @@ rule sctour_own:
 rule score:
     input:
         pts=lambda w: pt_files(w.name),
-        split="runs/fixed/clone_split.csv"
+        split="runs/fixed/clone_split.csv",
+        pos=[f"runs/{config['run']}/pt/{fe}/{b}/k{config['pre']['k']}/{b}_pseudotime.csv"
+             for fe in config["evaluate"]["pos_frontends"] for b in ("dpt", "palantir")]
     output:
         "runs/{run}/eval/{part}/{name}/scores.csv",
         "runs/{run}/eval/{part}/{name}/slices.csv"
     params:
         ref=lambda w: f"--ref {config['evaluate']['ref'][w.name]}" if w.name in config["evaluate"]["ref"] else "",
         n_boot=config["evaluate"]["n_boot"],
-        severe=config["evaluate"]["severe"]
+        severe=config["evaluate"]["severe"],
+        n_bins=config["evaluate"]["n_bins"]
     resources:
         mem_gb=4
     shell:
         f"{PY} bench.metric score --pts {{input.pts}} --split {{input.split}} --part {{wildcards.part}} "
-        "--outdir $(dirname {output[0]}) {params.ref} --n-boot {params.n_boot} --severe {params.severe}"
+        "--outdir $(dirname {output[0]}) {params.ref} --n-boot {params.n_boot} --severe {params.severe} "
+        "--pos-ref {input.pos} --n-bins {params.n_bins}"
 
 
 rule plot:
@@ -353,3 +431,32 @@ rule plot:
         mem_gb=2
     shell:
         f"{PY} bench.metric plot --pt {{input.pt}} --meta {{input.meta}} --out {{output}}"
+
+
+# thinned counts
+
+rule thin:
+    input:
+        "rt_data/cache/normed_counts_f32.npz"
+    output:
+        f"{THIN}/normed.npz"
+    params:
+        floor=lambda w: config["thin"]["min_counts"].get(float(w.p), 0),
+        seed=lambda w: int(w.d[1:]) if w.d else 0
+    resources:
+        mem_gb=9
+    shell:
+        f"{PY} bench.data thin --normed {{input}} --out {{output}} --p {{wildcards.p}} --min-counts {{params.floor}} --seed {{params.seed}}"
+
+
+rule thin_counts_hvg:
+    input:
+        normed=f"{THIN}/normed.npz",
+        genes="rt_data/stateFate_inVitro_gene_names.txt.gz",
+        meta="rt_data/stateFate_inVitro_metadata.txt.gz"
+    output:
+        f"{THIN}/counts_hvg.h5ad"
+    resources:
+        mem_gb=6
+    shell:
+        f"{PY} bench.data counts --normed {{input.normed}} --genes {{input.genes}} --meta {{input.meta}} --out {{output}}"

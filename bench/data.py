@@ -47,6 +47,36 @@ def cache(a):
     sp.save_npz(a.out, X)
 
 
+def raw_counts(X):
+    rmin = np.minimum.reduceat(X.data, X.indptr[:-1])
+    cnt = X.copy()
+    cnt.data = np.round(cnt.data / np.repeat(rmin, np.diff(X.indptr)))
+    return cnt
+
+
+def thin(a):
+    X = sp.load_npz(a.normed).tocsr()
+    target = float(np.median(np.asarray(X.sum(1)).ravel())) * a.p
+    cnt = raw_counts(X)
+    del X
+    raw = np.asarray(cnt.sum(1)).ravel().astype(np.float64)
+    n = cnt.data.astype(np.int64)
+    cnt.data = np.random.default_rng(a.seed).binomial(n, a.p).astype(np.float32)
+    low = np.flatnonzero(raw * a.p < a.min_counts)
+    rng = np.random.default_rng([a.seed, 1])
+    for i in low:
+        s, e = cnt.indptr[i], cnt.indptr[i + 1]
+        cnt.data[s:e] = rng.binomial(n[s:e], min(1.0, a.min_counts / raw[i]))
+    print("cells raised to floor", len(low))
+    cnt.eliminate_zeros()
+    tot = np.asarray(cnt.sum(1)).ravel()
+    if (tot == 0).any():
+        raise SystemExit(f"{int((tot == 0).sum())} cells lost all counts")
+    out = sp.diags((target / tot).astype(np.float32)) @ cnt
+    sp.save_npz(a.out, out.tocsr().astype(np.float32))
+    print("p", a.p, "target", target, "mean raw total", tot.mean(), "nnz", out.nnz)
+
+
 def split(a):
     labels = pd.read_csv(a.meta, sep="\t")["Cell type annotation"].to_numpy()
     cl = sio.mmread(a.clones).tocsc()
@@ -102,6 +132,14 @@ if __name__ == "__main__":
     s.add_argument("--normed", required=True)
     s.add_argument("--out", required=True)
     s.set_defaults(func=cache)
+
+    s = sub.add_parser("thin")
+    s.add_argument("--normed", required=True)
+    s.add_argument("--out", required=True)
+    s.add_argument("--p", type=float, required=True)
+    s.add_argument("--min-counts", type=float, default=0)
+    s.add_argument("--seed", type=int, default=0)
+    s.set_defaults(func=thin)
 
     s = sub.add_parser("split")
     s.add_argument("--meta", required=True)

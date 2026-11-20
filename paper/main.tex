@@ -1,4 +1,5 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[margin=2cm,columnsep=0.7cm]{geometry}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -11,31 +12,280 @@
 
 \newcommand{\todo}[1]{\textcolor{red}{[#1]}}
 
-\title{Benchmarking graph AE methods for building embedding spaces for Pseudo-Time and Optimal Transport}
+\title{When does the latent space matter for pseudotime? A benchmark with clonal ground truth}
 \author{Vladimir Opait}
 \date{\today}
 
 \begin{document}
 
+\twocolumn[{
+\begin{@twocolumnfalse}
 \maketitle
 
 \begin{abstract}
-    Reconstructing developmental trajectories from single-cell RNA sequencing
-(scRNA-seq) data is essential for understanding a wide range of biological
-processes. Trajectory inference methods such as diffusion pseudotime (DPT),
-Slingshot and Palantir operate on a low-dimensional representation of the
-expression matrix, yet the choice of this representation is rarely evaluated,
-even though available embedding methods rely on different assumptions and are
-optimized for different tasks. Here, we systematically benchmark [N] embedding
-methods, from widely used [e.g. PCA, scVI] to less common [e.g. ...], as inputs
-to [M] pseudotime algorithms across [K] datasets with [known ground truth:
-simulated lineages / time-course annotations], using [metrics, e.g. Spearman
-correlation with true ordering, branch assignment accuracy]. We find that
-[main result with a number]. [Second result: under which conditions / trade-off].
-[Unexpected finding, if any]. Our results indicate that [practical recommendation],
-and that the embedding should be treated as a key parameter of trajectory
-inference. Code and results are available at [link].
+\todo{Draft of the new framing, numbers from the dev split.}
+Trajectory inference methods order cells along a low-dimensional representation of the
+expression matrix, but the choice of this representation is rarely evaluated. We use the clonal
+barcodes of the LARRY in vitro haematopoiesis data to score pseudotime by the time order of
+sister cells, and ask which latent space helps, where and why. We compare [N] latent spaces,
+from PCA to count-based variational autoencoders, graph autoencoders, diffusion smoothing,
+two-dimensional layouts and a single-cell foundation model, as inputs to Euclidean distance, DPT
+and Palantir, at full sequencing depth and after binomial thinning of the counts. At full depth
+the trajectory method matters more than the latent space: with DPT and Palantir no latent space
+improves on PCA by more than 0.015 in accuracy, which is comparable to the spread over roots and training seeds.
+When molecules are removed, the latent space starts to matter: at 20\% of the molecules scVI
+improves DPT by 0.09 over PCA in each of three thinning draws, while diffusion smoothing does not
+help. [Which part of scVI is responsible.] [Foundation model result.] We conclude that
+[recommendation].
 \end{abstract}
+\vspace{1.5em}
+\end{@twocolumnfalse}
+}]
+
+\section{Introduction}
+\label{sec:intro}
+\todo{Narrative introduction. (1) Trajectory inference orders cells along a low-dimensional
+representation of the expression matrix. (2) The number of available representations grows: PCA,
+count-based variational autoencoders, graph models, diffusion smoothing, two-dimensional layouts,
+single-cell foundation models. (3) They are usually evaluated on simulations or on annotations,
+without a ground truth for the order of real cells; zero-shot foundation model embeddings were
+found worse than HVG--PCA for OT-based dynamics \cite{TODO-zhou2026}. (4) Clonal barcodes of
+LARRY give such a ground truth: a sister cell sampled later should have larger pseudotime.
+(5) Our question: when does the latent space matter for pseudotime, and what kind of latent space
+helps. (6) Short summary of the answer.}
+
+\section{Results}
+\todo{All numbers are from the development clones (1{,}760 clones, 26{,}106 pairs); test not opened.}
+
+\subsection{A clonal benchmark for latent spaces}
+\label{sec:overview}
+\todo{Short overview: what is compared, the sister-pair metric, the grid; details in
+Methods. Order inside each subsection: what was done, observations with numbers, one-sentence
+conclusion, explanation.}
+
+\begin{figure*}[t]
+\centering
+\todo{Fig.~1: (a) sister pair from a clone sampled at two days, correct if the later cell has
+larger pseudotime; (b) pipeline: counts $\to$ latent space $\to$ trajectory method $\to$ metric;
+(c) thinning of counts.}
+\caption{Benchmark design.}
+\label{fig:design}
+\end{figure*}
+
+Table~\ref{tab:grid} lists the settings that are varied. Trained latent spaces are trained with 3 seeds at full depth. Since spread
+between roots resulted to be small, we don't rerun model with different roots. A trained latent space without
+an internal graph does not depend on $k$, so one model serves all values of $k$.
+
+\begin{table*}[t]
+\centering\small
+\caption{Benchmark grid.}
+\label{tab:grid}
+\begin{tabular}{lp{0.62\linewidth}}
+\toprule
+Setting & Values \\
+\midrule
+Graph size $k$      & 15 (10, 30 in the appendix) \\
+Latent space, main  & PCA-50; PCA-10; PCA of Pearson residuals; LinearSCVI; scVI; MAGIC;
+                      GAE-50; Geneformer (zero-shot, LoRA) \\
+Latent space, full depth only & PCA-5, PCA-20; smoothed PCA ($t = 1, 3, 10$); scVI variants;
+                      scTour; GAE-10; VGAE-10, VGAE-50; untrained GAE \\
+Latent space, 2D    & UMAP; \todo{PCA-2; SPRING} (with their own set of trajectory methods,
+                      Section~\ref{sec:twod}) \\
+Sequencing depth $p$ & 1; 0.5, 0.3, 0.2 (3 draws each); 0.7, 0.1 in the appendix \\
+Trajectory method   & Euclidean distance; DPT; Palantir; \todo{Slingshot; Waddington-OT} \\
+Root                & 5 fixed cells \\
+Training seed       & 0--2 at full depth (scVI, GAE-50); 0 under thinning \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+\subsection{At full depth the trajectory method matters more than the latent space}
+On PCA, Euclidean distance reaches acc 0.826, DPT 0.876 and Palantir 0.888
+(Table~\ref{tab:full}). With DPT and Palantir, no latent space improves on PCA by more than
+0.015. The largest gain is GAE-50 with DPT ($+0.014$, interval $+0.008$ to $+0.020$), which is
+reproduced with three training seeds ($+0.013$ to $+0.015$). Euclidean distance is the only method
+where the latent space changes acc substantially: fewer PCA components or smoothing gain up to
+0.04, and graph autoencoders lose about 0.2, because they
+are trained to preserve neighbourhoods, not distances between distant cells. scTour, the only
+latent space made for trajectories, is worse than PCA with DPT ($-0.055$) and Palantir ($-0.063$).
+\todo{MAGIC, Pearson residuals, LinearSCVI, Geneformer.}
+
+\begin{table*}[t]
+\centering\small
+\caption{Accuracy at full depth ($k=15$, mean over five roots). PCA: acc with 95\% interval;
+other rows: paired difference to PCA with 95\% clone bootstrap interval. All latent spaces in
+Table~\ref{tab:fullall}.}
+\label{tab:full}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llll}
+\toprule
+Latent space & Euclidean distance & DPT & Palantir \\
+\midrule
+PCA-50 & 0.826 (0.795, 0.861) & 0.876 (0.846, 0.912) & 0.888 (0.860, 0.920) \\
+\midrule
+PCA-10 & $+$0.026 ($+$0.019, $+$0.036) & $-$0.002 ($-$0.006, $+$0.002) & $-$0.019 ($-$0.026, $-$0.014) \\
+PCA, Pearson residuals & \todo{} & \todo{} & \todo{} \\
+LinearSCVI & \todo{} & \todo{} & \todo{} \\
+scVI & $-$0.024 ($-$0.039, $-$0.011) & $-$0.004 ($-$0.011, $+$0.004) & $-$0.021 ($-$0.029, $-$0.013) \\
+MAGIC & \todo{} & \todo{} & \todo{} \\
+GAE-50 & $-$0.212 ($-$0.267, $-$0.164) & $+$0.014 ($+$0.008, $+$0.020) & $-$0.000 ($-$0.003, $+$0.004) \\
+Geneformer, zero-shot & \todo{} & \todo{} & \todo{} \\
+Geneformer, LoRA & \todo{} & \todo{} & \todo{} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Latent effects at full depth are of the size of root, seed and thinning noise}
+\todo{add a short summary of the design checks: settings of the trajectory methods, $k$, DPT kernel (Appendix~\ref{sec:checks}).}
+Differences between latent spaces at full depth are of the same size as other sources of
+variation that are usually not reported. The standard deviation of acc over the five roots is
+0.008--0.012 on PCA (Table~\ref{tab:roots}). Retraining scVI with another seed changes acc by up
+to 0.012 with DPT and 0.029 with Euclidean distance; GAE-50 changes by at most 0.001 with DPT and
+Palantir (Table~\ref{tab:seeds}). Two independent thinning draws at the same depth give acc that
+differs by up to 0.02 for $p \ge 0.3$, and up to 0.13 for $p = 0.2$ (Palantir on smoothed PCA,
+$t=3$: 0.799, 0.727, 0.665). Paired differences to PCA on the same draw are much more stable than
+acc itself. \todo{variance decomposition: method, latent, root, draw, seed}
+
+\subsection{At low depth a count model helps and smoothing does not}
+With fewer molecules, acc on PCA falls for all methods: for DPT from 0.876 at full depth to 0.826
+at $p=0.3$ and 0.763 at $p=0.2$ (Table~\ref{tab:thin}, Fig.~\ref{fig:thin}). scVI loses less. With
+DPT it is better than PCA by $+0.049$ at $p=0.3$ and $+0.094$ at $p=0.2$, and the gain is positive
+in each of the three draws ($+0.087$ to $+0.098$ at $p=0.2$). With Palantir the gain is $+0.030$
+and $+0.065$. With Euclidean distance scVI is worse than PCA at every depth. Diffusion smoothing of
+PCA does not help DPT or Palantir at low depth and costs up to 0.05 with Palantir at $p=0.2$
+(Table~\ref{tab:thinall}). GAE-50 loses its small advantage already at $p=0.3$ (one draw).
+\todo{MAGIC, Pearson residuals, LinearSCVI, Geneformer.}
+
+To see whether the loss comes from cells with few molecules, we split the sister pairs into ten
+equal groups by the number of molecules in the shallower cell of the pair and followed the same
+groups across depths (Fig.~\ref{fig:depthgroups}). Within one depth, accuracy hardly depends on
+the group: with DPT on PCA at full depth it is 0.86--0.92 in groups 1 to 9. Only the deepest group
+is worse (0.76); it contains more pairs in which both cells are undifferentiated (31\% against
+17--25\% in the other groups), and such pairs are hard to order. When molecules are removed,
+accuracy falls in all groups at once: at $p=0.1$ it is 0.49--0.61 for PCA in every group. The loss
+therefore does not come from the shallow cells themselves but from the depth of the whole data
+set, which is consistent with a degraded neighbourhood graph \todo{not checked directly}. scVI
+keeps the same profile at $p=0.3$ as at full depth and stays at 0.69--0.84 at $p=0.1$.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{../pics/fig_depth_acc.pdf}
+\caption{Accuracy of DPT by groups of sister pairs. Dev pairs are split into ten equal groups by
+the number of molecules in the shallower cell of the pair (group 1: fewest, group 10: most; at
+full depth the group medians range from 691 to 5{,}862 molecules); the same pairs form each group
+at every depth. Lines: kept fraction of molecules $p$ (thinning draw 0); mean over five roots,
+95\% clone bootstrap band. The lower accuracy of group 10 reflects pairs of two undifferentiated
+cells, not depth. All trajectory methods and latent spaces in Fig.~\ref{fig:depthall}.}
+\label{fig:depthgroups}
+\end{figure*}
+
+\begin{table*}[t]
+\centering\small
+\caption{Accuracy after thinning ($k=15$). PCA: acc; other rows: paired difference to PCA on the
+same draw. Mean over three draws, with minimum and maximum in brackets. $^\dagger$One draw.
+$p=0.7$ and $p=0.1$ in Table~\ref{tab:thinall}.}
+\label{tab:thin}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lllll}
+\toprule
+Latent space & $p$ & Euclidean distance & DPT & Palantir \\
+\midrule
+PCA-50 & 1   & 0.826 & 0.876 & 0.888 \\
+       & 0.5 & 0.810 [0.802, 0.814] & 0.873 [0.869, 0.876] & 0.874 [0.870, 0.878] \\
+       & 0.3 & 0.779 [0.775, 0.782] & 0.826 [0.821, 0.833] & 0.845 [0.841, 0.851] \\
+       & 0.2 & 0.768 [0.763, 0.774] & 0.763 [0.755, 0.774] & 0.780 [0.766, 0.795] \\
+\midrule
+scVI & 1   & $-$0.024 & $-$0.004 & $-$0.021 \\
+     & 0.5 & $-$0.047 [$-$0.056, $-$0.041] & $+$0.004 [$+$0.002, $+$0.006] & $-$0.017 [$-$0.024, $-$0.014] \\
+     & 0.3 & $-$0.021 [$-$0.034, $-$0.010] & $+$0.049 [$+$0.034, $+$0.064] & $+$0.030 [$+$0.018, $+$0.039] \\
+     & 0.2 & $-$0.041 [$-$0.051, $-$0.030] & $+$0.094 [$+$0.087, $+$0.098] & $+$0.065 [$+$0.025, $+$0.091] \\
+\midrule
+GAE-50$^\dagger$ & 1   & $-$0.212 & $+$0.014 & $-$0.000 \\
+                 & 0.5 & $-$0.234 & $-$0.001 & $-$0.004 \\
+                 & 0.3 & $-$0.167 & $-$0.033 & $-$0.066 \\
+                 & 0.2 & $-$0.177 & $-$0.116 & $-$0.207 \\
+\midrule
+\todo{other latents} & & & & \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\todo{figure: acc against $p$ for each latent space, one panel per trajectory method; points are
+draws, line is the mean}
+\caption{Accuracy against sequencing depth.}
+\label{fig:thin}
+\end{figure*}
+
+\subsection{What makes scVI robust to depth}
+\todo{title as a conclusion once the ablation is done}
+\todo{scVI differs from PCA-50 in three ways: dimension (10 vs 50), noise model (counts vs
+log-normalized), non-linearity. PCA-10 tests the dimension, PCA of Pearson residuals and
+LinearSCVI test the noise model without non-linearity.}
+
+\subsection{Two-dimensional layouts}
+\label{sec:twod}
+Trajectories are often inferred or displayed in a two-dimensional layout. UMAP gives the best
+Euclidean distance of all latent spaces: acc 0.876, $+0.050$ over PCA, with the same gain for
+three seeds (Table~\ref{tab:twod}). Possibly UMAP separates cell states, so that the distance from
+the root grows in steps between states and most sister pairs, whose later cell is in a more
+mature state, are ordered correctly \todo{not checked}. With graph-based methods UMAP is worse
+than PCA: $-0.095$ with DPT and $-0.019$ to $-0.032$ with Palantir. In two dimensions each cell has
+neighbours only nearby in the plane, diffusion on the graph mixes slowly, and the second
+eigenvalue of the Palantir diffusion operator is 0.99998 (double precision). In single precision it
+became 1 for two of the three seeds and gave infinite coordinates in the multiscale space; we
+recomputed the eigendecomposition in double precision in such cases. Palantir is designed to run on PCA, with UMAP used only for
+display \cite{setty2019palantir}, so its result on UMAP shows the cost of the misuse rather than a
+property of the latent space.
+
+UMAP is less robust to depth than PCA. Its gain with Euclidean distance holds at $p=0.5$
+($+0.057$) and becomes a loss at $p=0.2$ ($-0.099$); with DPT and Palantir the loss grows to
+$-0.12$ and $-0.09$ at $p=0.2$. The spread between draws is also larger: with DPT at $p=0.3$ acc
+ranges from 0.645 to 0.700, against 0.821 to 0.833 for PCA. \todo{PCA-2 as linear 2D control;
+SPRING of the original study; Slingshot and Monocle 3 \cite{TODO-cao2019monocle3}, which are
+designed for low-dimensional spaces.}
+
+\begin{table*}[t]
+\centering\small
+\caption{Two-dimensional layouts ($k=15$, five roots). Paired difference to PCA-50 with the same
+trajectory method. Full depth: seeds 0--2, with 95\% clone bootstrap interval for seed 0 (the
+intervals of seeds 1 and 2 differ by at most 0.01). Thinning: seed 0,
+mean over three draws with minimum and maximum ($p=0.7$: one draw).}
+\label{tab:twod}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lllll}
+\toprule
+Latent space & $p$ & Euclidean distance & DPT & Palantir \\
+\midrule
+UMAP, seed 0 & 1 & $+$0.050 ($+$0.037, $+$0.066) & $-$0.096 ($-$0.138, $-$0.057) & $-$0.028 ($-$0.041, $-$0.017) \\
+UMAP, seed 1 & 1 & $+$0.051 & $-$0.094 & $-$0.019 \\
+UMAP, seed 2 & 1 & $+$0.050 & $-$0.096 & $-$0.032 \\
+\midrule
+UMAP, seed 0 & 0.7 & $+$0.050 & $-$0.105 & $-$0.027 \\
+             & 0.5 & $+$0.057 [$+$0.054, $+$0.060] & $-$0.130 [$-$0.138, $-$0.124] & $-$0.008 [$-$0.018, $-$0.002] \\
+             & 0.3 & $+$0.017 [$+$0.000, $+$0.044] & $-$0.146 [$-$0.179, $-$0.121] & $-$0.057 [$-$0.077, $-$0.027] \\
+             & 0.2 & $-$0.099 [$-$0.151, $-$0.071] & $-$0.122 [$-$0.144, $-$0.109] & $-$0.093 [$-$0.121, $-$0.069] \\
+             & 0.1 & $-$0.287 [$-$0.330, $-$0.242] & $-$0.038 [$-$0.083, $+$0.035] & $-$0.104 [$-$0.129, $-$0.089] \\
+\midrule
+\todo{PCA-2, SPRING} & & & & \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{A foundation model}
+\todo{Geneformer zero-shot vs LoRA; compare with \cite{TODO-zhou2026}, who found zero-shot
+embeddings worse than HVG--PCA on the same data with OT-based metrics.}
+
+\section{Discussion}
+\todo{(1) at full depth the latent space is a minor choice compared with the trajectory method,
+and its effect is of the size of root and seed noise; (2) at low depth a count model helps and
+smoothing does not, because smoothing on the same graph adds no information; (3) report roots,
+seeds and thinning draws; (4) limitations: one dataset, in vitro, dev split, batch effect in LK.}
 
 \section{Methods}
 
@@ -55,38 +305,12 @@ so a clone does not define a reference time for each cell, but it fixes which ce
 earlier.
 
 \paragraph{Batch structure.}
-Each sequencing run corresponds to a specific day and a starting population, LK or LSK. Any
-batch correction method would inevitably remove the signal of time and population as well, so
-we chose to measure the size of the batch effect and keep it in mind when interpreting the
-results.
-
-The combination of starting population, day of collection, well and cell type, a stratum, gives
-cells that are very close in biology, so differences between libraries within a stratum are
-mostly technical. We used strata with at least 300 cells from at least two libraries (17 for LSK,
-24 for LK). We computed 15 nearest neighbours in our PCA space, which is used throughout the
-experiment and is described in more detail below. For each stratum we compared the share of
-neighbours from the same library with the share expected under random mixing. A ratio of 1 means
-no library structure. The median ratio over strata is 1.03 for LSK (range 0.91--1.09, almost
-perfectly mixed) and 1.45 for LK (range 1.07--1.79, a batch effect is present).
-
-On top of these strata we computed an ANOVA of the principal components with library as the
-factor (variance explained by library, $\eta^2$, averaged over components with weights equal to
-their variance). Library explains 0.2\% of the variance for LSK and 4.6\% for LK.
-
-The LARRY data also let us measure the distance in this space between sister cells of the
-same day, well and cell type that were sequenced in different libraries. Their biology should be
-as close as possible, so the extra distance compared with sisters from the same library is
-attributed to the batch. As a reference, each sister pair was matched with a random pair. We kept
-one cell of the pair and replaced its sister with a random cell from another clone in the same
-stratum. If the sisters came from one library, the random cell was taken from that library too.
-If they came from different libraries, the random cell was taken from a library other than that
-of the kept cell. In PCA space, sisters from different libraries are further apart than sisters
-from the same library by 0 to 0.5 in median distance, depending on population and day (the
-largest difference is for LK at day 4). The median distance between sisters is 5--10, and
-between a cell and the random cell 9--14.
-
-We conclude that there is no critical batch effect for the LSK population, and for LK it is
-intermediate and we must accept it as a limitation when we will interpret the result
+Each sequencing library corresponds to one day and one starting population, so batch correction
+would also remove the signal of time and population; we therefore did not correct for batch and
+measured its size instead (Appendix~\ref{sec:batch}). Among cells of the same population, day,
+well and type, the share of nearest neighbours from the same library is 1.03 times the random
+expectation for LSK and 1.45 for LK, and library explains 0.2\% and 4.6\% of the PCA variance.
+The batch effect is negligible for LSK and moderate for LK, which we treat as a limitation.
 
 \subsection{Evaluation}
 The pseudotime of a cell is compared with the time order within its clone. For a pair of sister
@@ -106,6 +330,21 @@ at least 200 pairs to enter the mean. As a check of the metric, the original pse
 neutrophil trajectory gives acc $=0.940$ (95\% CI 0.924--0.956) and violation $=0.004$, and a
 random pseudotime gives acc $=0.501$ and violation $=0.167$.
 
+\subsection{Sequencing depth}
+\label{sec:thin}
+To vary the sequencing depth, we thin the counts. Raw counts are recovered from the normalized
+matrix by dividing each cell by its smallest non-zero value (the deviation from integers is below
+$10^{-3}$). Each molecule is kept independently with probability $p$, i.e.\ the count of every
+gene in every cell is replaced by a binomial draw with $p$. The median raw total is 2{,}249
+molecules per cell (minimum 300). For $p \le 0.2$ a cell would keep fewer than 100 molecules on
+average if its raw total is below $100/p$; such cells are thinned with probability $100/n$
+instead, where $n$ is the raw total of the cell (\todo{share of cells: 4\% at $p=0.2$}). Without
+this floor, cells with no counts left in the selected genes become identical points and Palantir
+fails. The thinned counts are normalized to the median total of the full data times $p$, and
+every latent space is recomputed from them, including the selection of variable genes. Roots
+are kept from the full data. We use $p \in \{0.7, 0.5, 0.3, 0.2, 0.1\}$ and three independent
+draws for $p \le 0.5$. Latent spaces are compared with PCA on the same draw.
+
 \todo{evaluation for Waddington-OT: decided (W1 for held-out day 4 after GPA alignment, as in Zhou 2026; see claude.md, Metrics, item 4), to be written up}
 
 \subsection{Trajectory methods}
@@ -122,7 +361,9 @@ used. This baseline shows how much of the order comes from the latent space alon
 \paragraph{DPT.}
 Diffusion pseudotime (DPT) \cite{haghverdi2016diffusion} was computed with Scanpy on all cells.
 A $k$-nearest-neighbour graph was built on the latent space under evaluation, and DPT
-distance was computed from 10 diffusion components.
+distance was computed from 10 diffusion components. Edge weights use the Scanpy default (UMAP)
+kernel; the Gaussian kernel of the original method changes acc by at most 0.006
+(Table~\ref{tab:kernel}).
 
 \emph{What it uses.} \todo{which properties of the latent space DPT relies on}
 
@@ -135,6 +376,12 @@ distance was computed from 10 diffusion components.
 Palantir \cite{setty2019palantir} computes pseudotime as the shortest-path distance from the root
 on a $k$-nearest-neighbour graph built on diffusion components, and also gives fate probabilities.
 \todo{parameters; how the latent space is passed in}
+Palantir computes the diffusion eigenvalues in single precision with tolerance $10^{-4}$. If any of
+the used eigenvalues is 1 or larger, its scaling $\lambda/(1-\lambda)$ in the multiscale space is
+infinite or negative; in such cases we recompute the eigendecomposition of the same kernel in double
+precision with tolerance $10^{-8}$. This happened only for two-dimensional latent spaces
+(Section~\ref{sec:twod}). If the iterative eigensolver for the waypoint Markov chain does not
+converge, a dense eigendecomposition is used.
 
 \emph{What it uses.} \todo{which properties of the latent space Palantir relies on}
 
@@ -191,30 +438,51 @@ MAGIC \cite{vandijk2018magic} imputes expression by diffusion on a cell--cell af
 
 \emph{By method.} \todo{only where a method is expected to react differently}
 
-\subsection{Benchmark grid}
-Table~\ref{tab:grid} lists the settings that are varied. Trained latent spaces are trained with 3 seeds. Since spread
-between roots resulted to be small, we don't rerun model with different roots. A trained latent space without
-an internal graph does not depend on $k$, so one model serves all values of $k$.
+\paragraph{PCA with fewer components.}
+The first 5, 10 or 20 components of the PCA above. This separates the effect of the
+dimension from the effect of the model in the other latent spaces, most of which have 10
+dimensions.
 
-\begin{table}[ht]
-\centering\small
-\caption{Benchmark grid.}
-\label{tab:grid}
-\begin{tabular}{lp{0.62\linewidth}}
-\toprule
-Setting & Values \\
-\midrule
-Graph size $k$      & 10, 15, 30 \\
-Latent space        & PCA; smoothed PCA ($t = 1, 3, 10$); MAGIC \todo{more} \\
-Trajectory method   & Euclidean distance; DPT; Palantir; Slingshot; Waddington-OT \\
-Training seed       & 0--2 (trained latent spaces) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\paragraph{PCA of Pearson residuals.}
+\todo{analytic Pearson residuals \cite{TODO-lause2021} of raw counts, 2000 genes, 50 components;
+linear, but with a count noise model}
 
-\section{Results}
+\paragraph{scVI.}
+scVI \cite{TODO-lopez2018} is a variational autoencoder with a negative binomial likelihood on
+raw counts. It was trained on the raw counts of the 2000 variable genes with the default
+settings of scvi-tools (10 latent dimensions); the latent space is the posterior mean. Variants
+with 10 or 30 dimensions and a maximum KL weight of 0.01 or 1 are in the appendix.
 
-\todo{results}
+\paragraph{LinearSCVI.}
+\todo{scVI with a linear decoder \cite{TODO-svensson2020}; same likelihood, no non-linearity}
+
+\paragraph{scTour.}
+scTour \cite{TODO-li2023sctour} is a variational autoencoder with a neural ODE for time, made for
+trajectory inference. Default settings; the latent space is the mix of the encoder and ODE
+latents with weights 0.5. \todo{genes, epochs}
+
+\paragraph{Graph autoencoders.}
+A graph autoencoder (GAE) and its variational version (VGAE) \cite{TODO-kipf2016} with two graph
+convolution layers (hidden size 128) take standardized PCA coordinates and the $k$-nearest-neighbour
+graph of PCA, and are trained for 200 epochs (Adam, learning rate 0.01) to reconstruct the edges of
+the graph against random negative edges. Latent dimension 10 or 50. An untrained GAE (0 epochs)
+is a random graph filter and serves as a control.
+
+\paragraph{UMAP.}
+UMAP \cite{TODO-mcinnes2018} was computed with Scanpy from the $k=15$ nearest-neighbour graph of
+the PCA above (2 dimensions, \texttt{min\_dist} 0.5, Scanpy defaults otherwise), with seeds 0--2
+at full depth and seed 0 under thinning. UMAP is the default space of Monocle 3
+\cite{TODO-cao2019monocle3} and is widely used to display trajectories.
+
+\paragraph{SPRING.}
+\todo{two-dimensional force-directed layout of the original study \cite{TODO-weinreb2018spring},
+taken from the metadata; full depth only}
+
+\paragraph{Geneformer.}
+\todo{Geneformer V2-104M \cite{TODO-theodoris2023}, as in \cite{TODO-zhou2026}: raw counts of
+14{,}787 genes with one-to-one human orthologs (Ensembl BioMart; 83\% of molecules per cell, median),
+rank-value tokenization, [CLS] embedding, PCA to 50 components. Zero-shot and after LoRA
+\cite{TODO-hu2021lora} with the masked-gene objective on LARRY.}
 
 \bibliographystyle{plain}
 \bibliography{references}
@@ -225,7 +493,38 @@ Training seed       & 0--2 (trained latent spaces) \\
 \setcounter{table}{0}
 \setcounter{figure}{0}
 
+\section{Batch structure}
+\label{sec:batch}
+The combination of starting population, day of collection, well and cell type, a stratum, gives
+cells that are very close in biology, so differences between libraries within a stratum are
+mostly technical. We used strata with at least 300 cells from at least two libraries (17 for LSK,
+24 for LK). We computed 15 nearest neighbours in our PCA space, which is used throughout the
+experiment and is described in Section~\ref{sec:latent}. For each stratum we compared the share of
+neighbours from the same library with the share expected under random mixing. A ratio of 1 means
+no library structure. The median ratio over strata is 1.03 for LSK (range 0.91--1.09, almost
+perfectly mixed) and 1.45 for LK (range 1.07--1.79, a batch effect is present).
+
+On top of these strata we computed an ANOVA of the principal components with library as the
+factor (variance explained by library, $\eta^2$, averaged over components with weights equal to
+their variance). Library explains 0.2\% of the variance for LSK and 4.6\% for LK.
+
+The LARRY data also let us measure the distance in this space between sister cells of the
+same day, well and cell type that were sequenced in different libraries. Their biology should be
+as close as possible, so the extra distance compared with sisters from the same library is
+attributed to the batch. As a reference, each sister pair was matched with a random pair. We kept
+one cell of the pair and replaced its sister with a random cell from another clone in the same
+stratum. If the sisters came from one library, the random cell was taken from that library too.
+If they came from different libraries, the random cell was taken from a library other than that
+of the kept cell. In PCA space, sisters from different libraries are further apart than sisters
+from the same library by 0 to 0.5 in median distance, depending on population and day (the
+largest difference is for LK at day 4). The median distance between sisters is 5--10, and
+between a cell and the random cell 9--14.
+
+We conclude that there is no critical batch effect for the LSK population, and for LK it is
+intermediate and we must accept it as a limitation when we will interpret the result.
+
 \section{Design checks}
+\label{sec:checks}
 All checks in this section use the development clones (1{,}760 clones, 26{,}106 sister pairs in
 the two branches). The reported acc is the equal-weight mean over the neutrophil and monocyte
 branches; intervals are 95\% bootstrap intervals over clones.
@@ -240,7 +539,7 @@ sampling noise cancels in their differences while the effect of the root does no
 report acc averaged over the five roots for Euclidean distance, DPT and Palantir. Slingshot uses
 only the cluster that contains the root, so it is run once.
 
-\begin{table}[ht]
+\begin{table*}[t]
 \centering\small
 \caption{Accuracy on PCA ($k=15$) for five roots.}
 \label{tab:roots}
@@ -254,7 +553,7 @@ DPT ($n_{\mathrm{dc}}=10$) & 0.870 & 0.873 & 0.878 & 0.891 & 0.865 & 0.876 & 0.0
 Palantir (20 comp.)      & 0.881 & 0.891 & 0.895 & 0.902 & 0.870 & 0.888 & 0.012 & 0.061 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \subsection{Settings of the trajectory methods}
 Settings were compared on PCA with $k=15$ (Table~\ref{tab:settings}; mean over the five roots,
@@ -263,7 +562,7 @@ bootstrap interval. DPT uses 10 diffusion components (the Scanpy default). Palan
 components; this value is only an upper bound for its eigengap-based selection.
 \todo{Slingshot}
 
-\begin{table}[ht]
+\begin{table*}[t]
 \centering\small
 \caption{Accuracy on PCA ($k=15$) for different settings of the trajectory methods.}
 \label{tab:settings}
@@ -284,7 +583,7 @@ Palantir & 5 components  & 0.875 & 0.849--0.901 \\
          & 20 components & 0.888 & 0.860--0.920 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \subsection{Separate k for frontend and backend graphs}
 In the main grid the graph inside a frontend and the graph of the trajectory method use the same
@@ -309,5 +608,151 @@ $k_f$ \textbackslash{} $k_b$ & 10 & 15 & 30 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Graph kernel of DPT}
+Scanpy weights graph edges with the UMAP kernel by default, while the original DPT uses a Gaussian
+kernel with a per-cell width $\sigma_i$ (square root of the median squared distance to the $k$
+neighbours). DPT on PCA was rerun with the Gaussian kernel and $\sigma_i$ scaled by 0.5, 1 and 2,
+for $k=15$ and $k=30$ (Table~\ref{tab:kernel}; five roots, paired clone bootstrap against the UMAP
+kernel with $k=15$). The Gaussian kernel is slightly better (up to $+0.006$), the width matters
+little, and all settings stay below Palantir on PCA (0.888). The UMAP kernel is kept in the main
+grid.
+
+\begin{table*}[t]
+\centering\small
+\caption{Accuracy of DPT on PCA for different graph kernels. Difference: paired difference to the
+UMAP kernel with $k=15$, with 95\% clone bootstrap interval.}
+\label{tab:kernel}
+\begin{tabular}{lcccc}
+\toprule
+Kernel & $k$ & acc & Difference & $p$ \\
+\midrule
+UMAP & 15 & 0.876 & --- & --- \\
+UMAP & 30 & 0.873 & $-0.003$ ($-0.006$, $-0.001$) & 0.005 \\
+Gaussian, $\sigma \times 0.5$ & 15 & 0.878 & $+0.002$ ($-0.001$, $+0.005$) & 0.20 \\
+Gaussian, $\sigma \times 1$ & 15 & 0.880 & $+0.004$ ($+0.001$, $+0.007$) & 0.008 \\
+Gaussian, $\sigma \times 2$ & 15 & 0.880 & $+0.004$ ($+0.001$, $+0.007$) & 0.002 \\
+Gaussian, $\sigma \times 1$ & 30 & 0.882 & $+0.006$ ($+0.002$, $+0.009$) & $<0.001$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+\section{Additional results}
+
+\begin{table*}[t]
+\centering\scriptsize
+\caption{All latent spaces at full depth ($k=15$, five roots, seed 0). PCA: acc; other rows:
+paired difference to PCA with 95\% clone bootstrap interval.}
+\label{tab:fullall}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llll}
+\toprule
+Latent space & Euclidean distance & DPT & Palantir \\
+\midrule
+PCA-50 & 0.826 & 0.876 & 0.888 \\ \midrule
+PCA-5 & $+$0.042 ($+$0.031, $+$0.056) & $-$0.035 ($-$0.053, $-$0.022) & $-$0.016 ($-$0.022, $-$0.011) \\
+PCA-10 & $+$0.026 ($+$0.019, $+$0.036) & $-$0.002 ($-$0.006, $+$0.002) & $-$0.019 ($-$0.026, $-$0.014) \\
+PCA-20 & $+$0.016 ($+$0.012, $+$0.022) & $-$0.002 ($-$0.008, $+$0.002) & $-$0.016 ($-$0.026, $-$0.009) \\
+Smoothed PCA, $t=1$ & $+$0.017 ($+$0.013, $+$0.022) & $-$0.002 ($-$0.007, $+$0.002) & $-$0.002 ($-$0.004, $+$0.001) \\
+Smoothed PCA, $t=3$ & $+$0.028 ($+$0.021, $+$0.036) & $-$0.000 ($-$0.004, $+$0.003) & $-$0.006 ($-$0.011, $-$0.002) \\
+Smoothed PCA, $t=10$ & $+$0.040 ($+$0.030, $+$0.053) & $-$0.270 ($-$0.350, $-$0.197) & $-$0.007 ($-$0.011, $-$0.004) \\
+scVI (default) & $-$0.024 ($-$0.039, $-$0.011) & $-$0.004 ($-$0.011, $+$0.004) & $-$0.021 ($-$0.029, $-$0.013) \\
+scVI, 10 dim., KL 0.01 & $+$0.008 ($-$0.006, $+$0.022) & $+$0.003 ($-$0.005, $+$0.010) & $-$0.013 ($-$0.020, $-$0.006) \\
+scVI, 10 dim., KL 1 & $-$0.057 ($-$0.073, $-$0.043) & $+$0.008 ($+$0.001, $+$0.016) & $-$0.028 ($-$0.040, $-$0.017) \\
+scVI, 30 dim., KL 0.01 & $-$0.023 ($-$0.048, $-$0.001) & $-$0.000 ($-$0.011, $+$0.009) & $-$0.012 ($-$0.023, $-$0.002) \\
+scVI, 30 dim., KL 1 & $-$0.047 ($-$0.063, $-$0.034) & $+$0.004 ($-$0.005, $+$0.012) & $-$0.027 ($-$0.041, $-$0.016) \\
+scTour & $-$0.012 ($-$0.036, $+$0.011) & $-$0.055 ($-$0.080, $-$0.034) & $-$0.063 ($-$0.085, $-$0.044) \\
+GAE-10 & $-$0.217 ($-$0.298, $-$0.146) & $+$0.007 ($-$0.000, $+$0.014) & $-$0.022 ($-$0.038, $-$0.008) \\
+GAE-50 & $-$0.212 ($-$0.267, $-$0.164) & $+$0.014 ($+$0.008, $+$0.020) & $-$0.000 ($-$0.003, $+$0.004) \\
+GAE-50, untrained & $-$0.050 ($-$0.072, $-$0.032) & $+$0.002 ($-$0.005, $+$0.009) & $-$0.024 ($-$0.033, $-$0.016) \\
+VGAE-10 & $-$0.200 ($-$0.276, $-$0.134) & $-$0.006 ($-$0.014, $-$0.001) & $-$0.009 ($-$0.014, $-$0.005) \\
+VGAE-50 & $-$0.198 ($-$0.253, $-$0.147) & $+$0.012 ($+$0.007, $+$0.017) & $-$0.000 ($-$0.004, $+$0.003) \\
+MAGIC & \todo{} & \todo{} & \todo{} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\centering\small
+\caption{Accuracy for three training seeds at full depth ($k=15$, five roots).}
+\label{tab:seeds}
+\begin{tabular}{lcccc}
+\toprule
+Latent space & Seed & Euclidean distance & DPT & Palantir \\
+\midrule
+scVI & 0 & 0.802 & 0.872 & 0.867 \\
+scVI & 1 & 0.778 & 0.884 & 0.870 \\
+scVI & 2 & 0.807 & 0.882 & 0.873 \\
+\midrule
+GAE-50 & 0 & 0.615 & 0.889 & 0.888 \\
+GAE-50 & 1 & 0.602 & 0.889 & 0.888 \\
+GAE-50 & 2 & 0.603 & 0.890 & 0.888 \\
+\midrule
+PCA-50 & --- & 0.826 & 0.876 & 0.888 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\centering\scriptsize
+\caption{Accuracy after thinning, all depths ($k=15$). PCA: acc; other rows: paired difference to
+PCA on the same draw. Mean over draws with minimum and maximum in brackets (three draws for
+$p \le 0.5$, one draw otherwise and for GAE-50). At $p=0.1$ the third draw of scVI has 3{,}735
+cells with identical latent coordinates and the DPT graph splits into many components.}
+\label{tab:thinall}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lllll}
+\toprule
+Latent space & $p$ & Euclidean distance & DPT & Palantir \\
+\midrule
+PCA-50 & 1 & 0.826 & 0.876 & 0.888 \\
+ & 0.7 & 0.817 & 0.869 & 0.878 \\
+ & 0.5 & 0.810 [0.802, 0.814] & 0.873 [0.869, 0.876] & 0.874 [0.870, 0.878] \\
+ & 0.3 & 0.779 [0.775, 0.782] & 0.826 [0.821, 0.833] & 0.845 [0.841, 0.851] \\
+ & 0.2 & 0.768 [0.763, 0.774] & 0.763 [0.755, 0.774] & 0.780 [0.766, 0.795] \\
+ & 0.1 & 0.772 [0.760, 0.778] & 0.527 [0.509, 0.554] & 0.571 [0.527, 0.607] \\
+\midrule
+Smoothed PCA, $t=1$ & 1 & $+$0.017 & $-$0.002 & $-$0.002 \\
+ & 0.7 & $+$0.022 & $+$0.004 & $-$0.002 \\
+ & 0.5 & $+$0.020 [$+$0.019, $+$0.022] & $-$0.002 [$-$0.006, $+$0.001] & $-$0.005 [$-$0.011, $+$0.000] \\
+ & 0.3 & $+$0.010 [$+$0.009, $+$0.011] & $-$0.010 [$-$0.014, $-$0.006] & $-$0.018 [$-$0.027, $-$0.010] \\
+ & 0.2 & $+$0.004 [$+$0.001, $+$0.006] & $-$0.024 [$-$0.033, $-$0.014] & $-$0.050 [$-$0.069, $-$0.021] \\
+ & 0.1 & $-$0.001 [$-$0.003, $+$0.003] & $-$0.042 [$-$0.064, $-$0.008] & $-$0.133 [$-$0.161, $-$0.112] \\
+\midrule
+Smoothed PCA, $t=3$ & 1 & $+$0.028 & $-$0.000 & $-$0.006 \\
+ & 0.7 & $+$0.034 & $-$0.003 & $-$0.004 \\
+ & 0.5 & $+$0.036 [$+$0.033, $+$0.038] & $-$0.001 [$-$0.004, $+$0.003] & $-$0.005 [$-$0.010, $-$0.001] \\
+ & 0.3 & $+$0.015 [$+$0.012, $+$0.016] & $-$0.003 [$-$0.007, $+$0.004] & $-$0.015 [$-$0.018, $-$0.010] \\
+ & 0.2 & $+$0.002 [$-$0.001, $+$0.003] & $-$0.002 [$-$0.018, $+$0.009] & $-$0.050 [$-$0.101, $+$0.004] \\
+ & 0.1 & $-$0.006 [$-$0.008, $-$0.002] & $-$0.040 [$-$0.072, $-$0.019] & $-$0.096 [$-$0.123, $-$0.060] \\
+\midrule
+scVI & 1 & $-$0.024 & $-$0.004 & $-$0.021 \\
+ & 0.7 & $-$0.047 & $+$0.021 & $-$0.002 \\
+ & 0.5 & $-$0.047 [$-$0.056, $-$0.041] & $+$0.004 [$+$0.002, $+$0.006] & $-$0.017 [$-$0.024, $-$0.014] \\
+ & 0.3 & $-$0.021 [$-$0.034, $-$0.010] & $+$0.049 [$+$0.034, $+$0.064] & $+$0.030 [$+$0.018, $+$0.039] \\
+ & 0.2 & $-$0.041 [$-$0.051, $-$0.030] & $+$0.094 [$+$0.087, $+$0.098] & $+$0.065 [$+$0.025, $+$0.091] \\
+ & 0.1 & $-$0.053 [$-$0.066, $-$0.031] & $+$0.166 [$-$0.007, $+$0.255] & $+$0.131 [$-$0.111, $+$0.296] \\
+\midrule
+GAE-50 & 1 & $-$0.212 & $+$0.014 & $-$0.000 \\
+ & 0.7 & $-$0.257 & $+$0.007 & $-$0.004 \\
+ & 0.5 & $-$0.234 & $-$0.001 & $-$0.004 \\
+ & 0.3 & $-$0.167 & $-$0.033 & $-$0.066 \\
+ & 0.2 & $-$0.177 & $-$0.116 & $-$0.207 \\
+ & 0.1 & $-$0.184 & $-$0.097 & $-$0.148 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{../pics/figS_depth_acc_all.pdf}
+\caption{Accuracy by groups of sister pairs for all trajectory methods (columns), three latent
+spaces (rows) and all depths (colour). The $x$ axis is the median number of molecules in the
+shallower cell of the pairs of a group at the given depth, so the same groups shift to the left as
+molecules are removed.}
+\label{fig:depthall}
+\end{figure*}
 
 \end{document}

@@ -6,6 +6,7 @@ import tempfile
 import anndata as ad
 import numpy as np
 import pandas as pd
+import scipy.sparse as sp
 
 
 def load(a):
@@ -57,6 +58,20 @@ def euclid(a):
     write(out, a)
 
 
+def gauss_weights(dist, scale=1.0):
+    d = dist.tocsr().copy()
+    d_sq = d.power(2)
+    n_per_row = np.diff(d_sq.indptr)
+    med = np.array([np.median(d_sq.data[s:e]) for s, e in zip(d_sq.indptr[:-1], d_sq.indptr[1:])])
+    sig_sq = med * scale ** 2
+    rows = np.repeat(np.arange(d.shape[0]), n_per_row)
+    si, sj = sig_sq[rows], sig_sq[d_sq.indices]
+    den = si + sj
+    w = d_sq.copy()
+    w.data = np.sqrt(2 * np.sqrt(si * sj) / den) * np.exp(-d_sq.data / den)
+    return w.maximum(w.T).tocsr()
+
+
 def dpt(a):
     import scanpy as sc
     data = load(a)
@@ -64,6 +79,8 @@ def dpt(a):
     if key is None:
         key = "neighbors"
         sc.pp.neighbors(data, n_neighbors=a.n_neighbors, use_rep=a.latent_key, transformer="sklearn")
+        if a.kernel == "gauss":
+            data.obsp["connectivities"] = gauss_weights(data.obsp["distances"], a.sigma_scale)
     elif key not in data.uns:
         raise SystemExit(f"Graph '{key}' not in uns")
     sc.tl.diffmap(data, n_comps=a.n_dcs + 5, neighbors_key=key)
@@ -82,9 +99,33 @@ def palantir(a):
     data = load(a)
     data.obsm[a.latent_key] = np.asarray(data.obsm[a.latent_key], dtype=np.float64)
     pl.utils.run_diffusion_maps(data, n_components=a.n_components, knn=a.n_neighbors, pca_key=a.latent_key, seed=a.seed)
+    if (np.asarray(data.uns["DM_EigenValues"])[1:] >= 1).any():
+        from scipy.sparse.linalg import eigs as eigs64
+        print("eigenvalue >= 1 in float32, recomputing in float64")
+        kernel = data.obsp["DM_Kernel"].astype(np.float64)
+        T = (sp.diags(1 / np.ravel(kernel.sum(axis=1))) @ kernel).tocsr()
+        vals, vecs = eigs64(T, a.n_components, tol=1e-8, maxiter=10000,
+                            v0=np.random.default_rng(a.seed).random(T.shape[0]))
+        idx = np.argsort(-vals.real)
+        vecs = vecs.real[:, idx]
+        data.obsm["DM_EigenVectors"] = vecs / np.linalg.norm(vecs, axis=0)
+        data.uns["DM_EigenValues"] = vals.real[idx]
+        print("eigenvalues", np.round(data.uns["DM_EigenValues"][:5], 8))
     pl.utils.determine_multiscale_space(data)
     out = frame(data, a)
     os.makedirs(a.outdir, exist_ok=True)
+    from scipy.sparse.linalg import ArpackNoConvergence, eigs
+
+    def eigs_retry(A, k, **kw):
+        try:
+            return eigs(A, k, **kw)
+        except ArpackNoConvergence:
+            print("ARPACK failed, dense eig")
+            vals, vecs = np.linalg.eig(A.toarray() if hasattr(A, "toarray") else np.asarray(A))
+            idx = np.argsort(-np.abs(vals))[:k]
+            return vals[idx], vecs[:, idx]
+
+    pl.core.eigs = eigs_retry
     for r in a.roots:
         pl.core.run_palantir(data, r, knn=a.n_neighbors, num_waypoints=a.num_waypoints, use_early_cell_as_start=True,
                              n_jobs=a.n_jobs, seed=a.seed, save_as_df=True)
@@ -170,6 +211,8 @@ if __name__ == "__main__":
     s.add_argument("--neighbors-key")
     s.add_argument("--n-dcs", type=int, default=10)
     s.add_argument("--n-neighbors", type=int, default=15)
+    s.add_argument("--kernel", choices=["umap", "gauss"], default="umap")
+    s.add_argument("--sigma-scale", type=float, default=1.0)
 
     s = add("palantir", palantir)
     s.add_argument("--n-components", type=int, default=20)

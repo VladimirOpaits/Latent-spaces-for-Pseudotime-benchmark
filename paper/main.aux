@@ -2,35 +2,75 @@
 \providecommand\hyper@newdestlabel[2]{}
 \providecommand\HyField@AuxAddToFields[1]{}
 \providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{TODO-zhou2026}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Results}{1}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}A clonal benchmark for latent spaces}{1}{subsection.2.1}\protected@file@percent }
+\newlabel{sec:overview}{{2.1}{1}{A clonal benchmark for latent spaces}{subsection.2.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}At full depth the trajectory method matters more than the latent space}{1}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Latent effects at full depth are of the size of root, seed and thinning noise}{1}{subsection.2.3}\protected@file@percent }
+\citation{setty2019palantir}
+\citation{TODO-cao2019monocle3}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Benchmark design.}}{2}{figure.1}\protected@file@percent }
+\newlabel{fig:design}{{1}{2}{Benchmark design}{figure.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Benchmark grid.}}{2}{table.1}\protected@file@percent }
+\newlabel{tab:grid}{{1}{2}{Benchmark grid}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}At low depth a count model helps and smoothing does not}{2}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}What makes scVI robust to depth}{2}{subsection.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Two-dimensional layouts}{2}{subsection.2.6}\protected@file@percent }
+\newlabel{sec:twod}{{2.6}{2}{Two-dimensional layouts}{subsection.2.6}{}}
+\citation{TODO-zhou2026}
 \citation{weinreb2020lineage}
-\@writefile{toc}{\contentsline {section}{\numberline {1}Methods}{1}{section.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Dataset}{1}{subsection.1.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Batch structure.}{2}{section*.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Accuracy at full depth ($k=15$, mean over five roots). PCA: acc with 95\% interval; other rows: paired difference to PCA with 95\% clone bootstrap interval. All latent spaces in Table~\ref {tab:fullall}.}}{3}{table.2}\protected@file@percent }
+\newlabel{tab:full}{{2}{3}{Accuracy at full depth ($k=15$, mean over five roots). PCA: acc with 95\% interval; other rows: paired difference to PCA with 95\% clone bootstrap interval. All latent spaces in Table~\ref {tab:fullall}}{table.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Accuracy of DPT by groups of sister pairs. Dev pairs are split into ten equal groups by the number of molecules in the shallower cell of the pair (group 1: fewest, group 10: most; at full depth the group medians range from 691 to 5{,}862 molecules); the same pairs form each group at every depth. Lines: kept fraction of molecules $p$ (thinning draw 0); mean over five roots, 95\% clone bootstrap band. The lower accuracy of group 10 reflects pairs of two undifferentiated cells, not depth. All trajectory methods and latent spaces in Fig.~\ref {fig:depthall}.}}{3}{figure.2}\protected@file@percent }
+\newlabel{fig:depthgroups}{{2}{3}{Accuracy of DPT by groups of sister pairs. Dev pairs are split into ten equal groups by the number of molecules in the shallower cell of the pair (group 1: fewest, group 10: most; at full depth the group medians range from 691 to 5{,}862 molecules); the same pairs form each group at every depth. Lines: kept fraction of molecules $p$ (thinning draw 0); mean over five roots, 95\% clone bootstrap band. The lower accuracy of group 10 reflects pairs of two undifferentiated cells, not depth. All trajectory methods and latent spaces in Fig.~\ref {fig:depthall}}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.7}A foundation model}{3}{subsection.2.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Discussion}{3}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Methods}{3}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Dataset}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Accuracy after thinning ($k=15$). PCA: acc; other rows: paired difference to PCA on the same draw. Mean over three draws, with minimum and maximum in brackets. $^\dagger $One draw. $p=0.7$ and $p=0.1$ in Table~\ref {tab:thinall}.}}{4}{table.3}\protected@file@percent }
+\newlabel{tab:thin}{{3}{4}{Accuracy after thinning ($k=15$). PCA: acc; other rows: paired difference to PCA on the same draw. Mean over three draws, with minimum and maximum in brackets. $^\dagger $One draw. $p=0.7$ and $p=0.1$ in Table~\ref {tab:thinall}}{table.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Accuracy against sequencing depth.}}{4}{figure.3}\protected@file@percent }
+\newlabel{fig:thin}{{3}{4}{Accuracy against sequencing depth}{figure.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Batch structure.}{4}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Evaluation}{4}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Sequencing depth}{4}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:thin}{{4.3}{4}{Sequencing depth}{subsection.4.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Trajectory methods}{4}{subsection.4.4}\protected@file@percent }
 \citation{haghverdi2016diffusion}
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Evaluation}{3}{subsection.1.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Trajectory methods}{3}{subsection.1.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Euclidean distance.}{3}{section*.2}\protected@file@percent }
 \citation{setty2019palantir}
 \citation{schiebinger2019optimal}
 \citation{kanehisa2000kegg}
 \citation{yeo2021prescient}
 \citation{klein2025moscot}
 \citation{wolf2018scanpy}
-\@writefile{toc}{\contentsline {paragraph}{DPT.}{4}{section*.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Slingshot.}{4}{section*.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Palantir.}{4}{section*.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Waddington-OT.}{4}{section*.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}Latent spaces}{4}{subsection.1.4}\protected@file@percent }
-\newlabel{sec:latent}{{1.4}{4}{Latent spaces}{subsection.1.4}{}}
-\citation{vandijk2018magic}
-\bibstyle{plain}
-\bibdata{references}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Two-dimensional layouts ($k=15$, five roots). Paired difference to PCA-50 with the same trajectory method. Full depth: seeds 0--2, with 95\% clone bootstrap interval for seed 0 (the intervals of seeds 1 and 2 differ by at most 0.01). Thinning: seed 0, mean over three draws with minimum and maximum ($p=0.7$: one draw).}}{5}{table.4}\protected@file@percent }
+\newlabel{tab:twod}{{4}{5}{Two-dimensional layouts ($k=15$, five roots). Paired difference to PCA-50 with the same trajectory method. Full depth: seeds 0--2, with 95\% clone bootstrap interval for seed 0 (the intervals of seeds 1 and 2 differ by at most 0.01). Thinning: seed 0, mean over three draws with minimum and maximum ($p=0.7$: one draw)}{table.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Euclidean distance.}{5}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{DPT.}{5}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Slingshot.}{5}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Palantir.}{5}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Waddington-OT.}{5}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Latent spaces}{5}{subsection.4.5}\protected@file@percent }
+\newlabel{sec:latent}{{4.5}{5}{Latent spaces}{subsection.4.5}{}}
 \@writefile{toc}{\contentsline {paragraph}{PCA.}{5}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Smoothed PCA.}{5}{section*.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{MAGIC.}{5}{section*.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.5}Benchmark grid}{5}{subsection.1.5}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Benchmark grid.}}{5}{table.1}\protected@file@percent }
-\newlabel{tab:grid}{{1}{5}{Benchmark grid}{table.1}{}}
+\citation{vandijk2018magic}
+\citation{TODO-lause2021}
+\citation{TODO-lopez2018}
+\citation{TODO-svensson2020}
+\citation{TODO-li2023sctour}
+\citation{TODO-kipf2016}
+\citation{TODO-mcinnes2018}
+\citation{TODO-cao2019monocle3}
+\citation{TODO-weinreb2018spring}
+\citation{TODO-theodoris2023}
+\citation{TODO-zhou2026}
+\citation{TODO-hu2021lora}
+\bibstyle{plain}
+\bibdata{references}
 \bibcite{haghverdi2016diffusion}{{1}{}{{}}{{}}}
 \bibcite{kanehisa2000kegg}{{2}{}{{}}{{}}}
 \bibcite{klein2025moscot}{{3}{}{{}}{{}}}
@@ -40,16 +80,40 @@
 \bibcite{weinreb2020lineage}{{7}{}{{}}{{}}}
 \bibcite{wolf2018scanpy}{{8}{}{{}}{{}}}
 \bibcite{yeo2021prescient}{{9}{}{{}}{{}}}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Results}{6}{section.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A}Design checks}{7}{appendix.A}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Sensitivity to the root}{7}{subsection.A.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {S1}{\ignorespaces Accuracy on PCA ($k=15$) for five roots.}}{7}{table.1}\protected@file@percent }
-\newlabel{tab:roots}{{S1}{7}{Accuracy on PCA ($k=15$) for five roots}{table.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Settings of the trajectory methods}{7}{subsection.A.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Separate k for frontend and backend graphs}{7}{subsection.A.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{MAGIC.}{6}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{PCA with fewer components.}{6}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{PCA of Pearson residuals.}{6}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{scVI.}{6}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LinearSCVI.}{6}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{scTour.}{6}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Graph autoencoders.}{6}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{UMAP.}{6}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{SPRING.}{6}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Geneformer.}{6}{section*.18}\protected@file@percent }
 \providecommand\NAT@force@numbers{}\NAT@force@numbers
+\@writefile{toc}{\contentsline {section}{\numberline {A}Batch structure}{7}{appendix.A}\protected@file@percent }
+\newlabel{sec:batch}{{A}{7}{Batch structure}{appendix.A}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Design checks}{7}{appendix.B}\protected@file@percent }
+\newlabel{sec:checks}{{B}{7}{Design checks}{appendix.B}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Sensitivity to the root}{7}{subsection.B.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}Settings of the trajectory methods}{7}{subsection.B.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}Separate k for frontend and backend graphs}{7}{subsection.B.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.4}Graph kernel of DPT}{7}{subsection.B.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {C}Additional results}{7}{appendix.C}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {S1}{\ignorespaces Accuracy on PCA ($k=15$) for five roots.}}{8}{table.1}\protected@file@percent }
+\newlabel{tab:roots}{{S1}{8}{Accuracy on PCA ($k=15$) for five roots}{table.1}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {S2}{\ignorespaces Accuracy on PCA ($k=15$) for different settings of the trajectory methods.}}{8}{table.2}\protected@file@percent }
 \newlabel{tab:settings}{{S2}{8}{Accuracy on PCA ($k=15$) for different settings of the trajectory methods}{table.2}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {S3}{\ignorespaces Accuracy of DPT on smoothed PCA ($t=3$) for frontend graph size $k_f$ (rows) and backend graph size $k_b$ (columns). Intervals are about $\pm 0.03$ except for $k_f=30$, $k_b=10$ (0.659--0.756).}}{8}{table.3}\protected@file@percent }
 \newlabel{tab:kcross}{{S3}{8}{Accuracy of DPT on smoothed PCA ($t=3$) for frontend graph size $k_f$ (rows) and backend graph size $k_b$ (columns). Intervals are about $\pm 0.03$ except for $k_f=30$, $k_b=10$ (0.659--0.756)}{table.3}{}}
-\gdef \@abspage@last{8}
+\@writefile{lot}{\contentsline {table}{\numberline {S4}{\ignorespaces Accuracy of DPT on PCA for different graph kernels. Difference: paired difference to the UMAP kernel with $k=15$, with 95\% clone bootstrap interval.}}{9}{table.4}\protected@file@percent }
+\newlabel{tab:kernel}{{S4}{9}{Accuracy of DPT on PCA for different graph kernels. Difference: paired difference to the UMAP kernel with $k=15$, with 95\% clone bootstrap interval}{table.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {S5}{\ignorespaces All latent spaces at full depth ($k=15$, five roots, seed 0). PCA: acc; other rows: paired difference to PCA with 95\% clone bootstrap interval.}}{9}{table.5}\protected@file@percent }
+\newlabel{tab:fullall}{{S5}{9}{All latent spaces at full depth ($k=15$, five roots, seed 0). PCA: acc; other rows: paired difference to PCA with 95\% clone bootstrap interval}{table.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {S6}{\ignorespaces Accuracy for three training seeds at full depth ($k=15$, five roots).}}{9}{table.6}\protected@file@percent }
+\newlabel{tab:seeds}{{S6}{9}{Accuracy for three training seeds at full depth ($k=15$, five roots)}{table.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {S7}{\ignorespaces Accuracy after thinning, all depths ($k=15$). PCA: acc; other rows: paired difference to PCA on the same draw. Mean over draws with minimum and maximum in brackets (three draws for $p \le 0.5$, one draw otherwise and for GAE-50). At $p=0.1$ the third draw of scVI has 3{,}735 cells with identical latent coordinates and the DPT graph splits into many components.}}{10}{table.7}\protected@file@percent }
+\newlabel{tab:thinall}{{S7}{10}{Accuracy after thinning, all depths ($k=15$). PCA: acc; other rows: paired difference to PCA on the same draw. Mean over draws with minimum and maximum in brackets (three draws for $p \le 0.5$, one draw otherwise and for GAE-50). At $p=0.1$ the third draw of scVI has 3{,}735 cells with identical latent coordinates and the DPT graph splits into many components}{table.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {S1}{\ignorespaces Accuracy by groups of sister pairs for all trajectory methods (columns), three latent spaces (rows) and all depths (colour). The $x$ axis is the median number of molecules in the shallower cell of the pairs of a group at the given depth, so the same groups shift to the left as molecules are removed.}}{11}{figure.1}\protected@file@percent }
+\newlabel{fig:depthall}{{S1}{11}{Accuracy by groups of sister pairs for all trajectory methods (columns), three latent spaces (rows) and all depths (colour). The $x$ axis is the median number of molecules in the shallower cell of the pairs of a group at the given depth, so the same groups shift to the left as molecules are removed}{figure.1}{}}
+\gdef \@abspage@last{11}

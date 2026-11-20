@@ -1,6 +1,6 @@
 - `bench/` : library + cli, one file per pipeline stage (`python -m bench.<file> <command>`)
   - $`data.py` : loads data, clones, branches; cache | split | counts
-  - $`latents.py` : latent format, knn graph, smoothing; pca | slice | smooth | scvi | sctour | gae
+  - $`latents.py` : latent format, knn graph, smoothing; pca | slice | smooth | magic | scvi | sctour | gae
   - $`backends.py` : pseudotime from latent; roots | euclid | dpt | palantir | slingshot
   - $`slingshot.R` : slingshot curves, called from backends.py
   - $`metric.py` : sister order metric, bootstrap over clones, slices; score | plot

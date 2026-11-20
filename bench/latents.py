@@ -37,12 +37,8 @@ def pca(X, n_hvg=2000, n_pcs=50):
     return data.obsm["X_pca"].astype(np.float32)
 
 
-def graph_key(k):
-    return f"k{k}"
-
-
 def add_graph(data, k):
-    key = graph_key(k)
+    key = f"k{k}"
     if key not in data.uns:
         sc.pp.neighbors(data, n_neighbors=k, use_rep=LATENT, key_added=key, transformer="sklearn")
     return key
@@ -67,11 +63,11 @@ def smooth(latent, conn, t=3):
     return x.astype(np.float32)
 
 
-def make_frontend(latent, obs, **params):
+def make_frontend(latent, obs, **params): 
     data = ad.AnnData(obs=obs.copy())
     data.obsm[LATENT] = np.asarray(latent, dtype=np.float32)
-    data.uns["frontend"] = params
-    return data
+    data.uns["frontend"] = params   #  все, что не привязанно ни к клеткам ни к генам,
+    return data                     #  в нашем случае настройки латента
 
 
 def frontend_path(name, root=ROOT):
@@ -112,6 +108,14 @@ def pca_smooth(a):
     _, conn = get_graph(data, a.k)
     x = smooth(np.asarray(data.obsm[LATENT]), conn, t=a.t)
     save_frontend(make_frontend(x, data.obs, method="pca_smooth", t=a.t, graph_k=a.k), a.out)
+
+
+def run_umap(a):
+    data = load_frontend(a.input)
+    key = add_graph(data, a.k)
+    sc.tl.umap(data, neighbors_key=key, min_dist=a.min_dist, n_components=a.n_dim, random_state=a.seed)
+    save_frontend(make_frontend(data.obsm["X_umap"], data.obs, method="umap", graph_k=a.k, min_dist=a.min_dist,
+                                n_dim=a.n_dim, seed=a.seed), a.out)
 
 
 def scvi(a):
@@ -219,6 +223,24 @@ def gae(a):
     print(a.kind, "latent", z.shape, "active", active, "loss first/last", hist[:1], hist[-1:])
 
 
+def run_magic(a):
+    import magic
+    import scprep
+    from bench.data import load_larry
+    meta, _ = load_larry()
+    x = sp.load_npz(a.input).tocsr()
+    x = scprep.filter.filter_rare_genes(x, min_cells = a.min_cells)  # вместо hvg
+    #x = scprep.normalize.library_size_normalize(x)       # данные уже нормализированны
+    x = scprep.transform.sqrt(x)
+    op = magic.MAGIC(knn = a.knn, decay = a.decay, t = a.t, n_pca = a.n_pca, random_state = a.seed, verbose = 0, n_jobs = a.n_jobs)
+    z = np.asarray(op.fit_transform(x, genes = 'pca_only'))[:, :a.n_pcs] # выбираем из 100 компонент сколько
+    # нам надо, сообщаем что как аутпут нас интересует сразу PCA.
+    out = make_frontend(z, larry_obs(meta), method = 'magic', min_cells = a.min_cells, transform = 'sqrt',
+        knn = a.knn, decay = a.decay, t = a.t, n_pca = a.n_pca, # внутри MAGIC для построенния графа и диффузий
+        n_pcs = a.n_pcs, n_genes = x.shape[1])
+    add_graph(out, a.k)
+    save_frontend(out, a.out)
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(required=True)
@@ -242,6 +264,21 @@ if __name__ == "__main__":
     s = add("smooth", pca_smooth)
     s.add_argument("--k", type=int, required=True)
     s.add_argument("--t", type=int, required=True)
+
+    s = add("umap", run_umap)
+    s.add_argument("--k", type=int, default=15)
+    s.add_argument("--min-dist", type=float, default=0.5)
+    s.add_argument("--n-dim", type=int, default=2)
+
+    s = add('magic', run_magic)
+    s.add_argument('--min-cells', type = int, default = 10)
+    s.add_argument('--knn', type = int, default = 5)
+    s.add_argument('--decay', type = float, default = 1)
+    s.add_argument('--t', type = int, default = 3)
+    s.add_argument('--n-pca', type = int, default = 100)
+    s.add_argument('--n-pcs', type = int, default = 50)
+    s.add_argument('--n-jobs', type = int, default = 8)
+    s.add_argument('--k', type = int, default = 15)
 
     s = add("scvi", scvi)
     s.add_argument("--n-latent", type=int, default=10)

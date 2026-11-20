@@ -4,7 +4,16 @@ roots: {n_roots: 5, pool_size: 100, seed: 0, n_used: 5}
 dpt: {n_dcs: 10}
 palantir: {n_components: 20, num_waypoints: 1200, seed: 20}
 slingshot: {cluster_by: leiden, seed: 0}
-evaluate: {n_boot: 2000, severe: 0.1, ref: {pre: pca}}
+evaluate:
+  n_boot: 2000
+  severe: 0.1
+  n_bins: 5
+  ref: {pre: pca, thin: pca}
+  pos_frontends: [pca, scvi_s0, scvi_s1, sctour_s0, sctour_s1,
+                  pca5, pca10, pca20, pca_smooth_t1_k15, pca_smooth_t3_k15, pca_smooth_t10_k15,
+                  scvi_l10_kl0.01_s0, scvi_l10_kl1.0_s0,
+                  gae_l10_e200_s0, gae_l50_e200_s0, vgae_l10_e200_s0, vgae_l50_e200_s0, gae_l50_e0_s0,
+                  scvi_l30_kl0.01_s0, scvi_l30_kl1.0_s0]
 calib:
   frontend: pca
   k: 15
@@ -17,4 +26,14 @@ pre:
               pca5, pca10, pca20, pca_smooth_t1_k15, pca_smooth_t3_k15, pca_smooth_t10_k15,
               scvi_l10_kl0.01_s0, scvi_l10_kl1.0_s0,
               gae_l10_e200_s0, gae_l50_e200_s0, vgae_l10_e200_s0, vgae_l50_e200_s0, gae_l50_e0_s0,
-              scvi_l30_kl0.01_s0, scvi_l30_kl1.0_s0]
+              scvi_l30_kl0.01_s0, scvi_l30_kl1.0_s0,
+              scvi_s2, gae_l50_e200_s1, gae_l50_e200_s2,
+              umap_s0, umap_s1, umap_s2, magic_t3]
+kernel: {frontend: pca, k: [15, 30], sigma: [0.5, 1, 2]}
+thin:
+  p: [0.7, 0.5, 0.3, 0.2, 0.1]
+  min_counts: {0.2: 100, 0.1: 100}
+  frontends: [pca, pca_smooth_t1_k15, pca_smooth_t3_k15, scvi_s0, gae_l50_e200_s0, umap_s0, magic_t3]
+  draws: [1, 2]
+  draw_p: [0.5, 0.3, 0.2, 0.1]
+  draw_frontends: [pca, pca_smooth_t1_k15, pca_smooth_t3_k15, scvi_s0, umap_s0, magic_t3]

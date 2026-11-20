@@ -173,3 +173,14 @@ def test_many_roots_equal_single_runs(curve, tmp_path):
     for r in roots:
         one = run_dpt(path, str(tmp_path / r), [r], neighbors_key="k15")
         assert np.allclose(many[r].to_numpy(), one[r].to_numpy())
+
+
+def test_gauss_weights_match_scanpy():
+    import scanpy as sc
+    from bench.backends import gauss_weights
+    rng = np.random.default_rng(0)
+    data = make_frontend(rng.normal(size=(300, 5)), pd.DataFrame(index=[f"c{i}" for i in range(300)]))
+    sc.pp.neighbors(data, n_neighbors=15, use_rep="X_latent", method="gauss", transformer="sklearn")
+    w = gauss_weights(data.obsp["distances"])
+    assert abs(w - data.obsp["connectivities"]).max() < 1e-6
+    assert gauss_weights(data.obsp["distances"], 2.0).sum() > w.sum()

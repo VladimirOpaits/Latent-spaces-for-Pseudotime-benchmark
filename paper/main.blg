@@ -3,9 +3,20 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
 The style file: plain.bst
 Database file #1: references.bib
+Warning--I didn't find a database entry for "TODO-zhou2026"
+Warning--I didn't find a database entry for "TODO-cao2019monocle3"
+Warning--I didn't find a database entry for "TODO-lause2021"
+Warning--I didn't find a database entry for "TODO-lopez2018"
+Warning--I didn't find a database entry for "TODO-svensson2020"
+Warning--I didn't find a database entry for "TODO-li2023sctour"
+Warning--I didn't find a database entry for "TODO-kipf2016"
+Warning--I didn't find a database entry for "TODO-mcinnes2018"
+Warning--I didn't find a database entry for "TODO-weinreb2018spring"
+Warning--I didn't find a database entry for "TODO-theodoris2023"
+Warning--I didn't find a database entry for "TODO-hu2021lora"
 You've used 9 entries,
             2118 wiz_defined-function locations,
-            559 strings with 6040 characters,
+            581 strings with 6398 characters,
 and the built_in function-call counts, 3917 in all, are:
 = -- 362
 > -- 282
@@ -44,3 +55,4 @@ warning$ -- 0
 while$ -- 33
 width$ -- 10
 write$ -- 101
+(There were 11 warnings)
